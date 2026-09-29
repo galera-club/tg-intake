@@ -9,7 +9,7 @@ endif
 GOOSE := go run -tags='no_sqlite3' github.com/pressly/goose/v3/cmd/goose@v3.27.3
 MIGRATIONS_DIR := ./migrations
 
-.PHONY: run build test test-fast eval eval-compare vet fmt-check lint commit-check ci-check check-db migrate-up migrate-down migrate-reset live check-live-db
+.PHONY: run build test test-fast eval eval-compare vet fmt-check lint security commit-check ci-check check-db migrate-up migrate-down migrate-reset live check-live-db
 
 run:
 	go run ./cmd/intake
@@ -82,10 +82,27 @@ fmt-check:
 lint:
 	golangci-lint run --timeout 120s
 
+# Сканеры закреплены версией через go run, как goose: не зависят от PATH машины и CI.
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.8.0
+GITLEAKS := go run github.com/zricethezav/gitleaks/v8@v8.30.1
+
+# gitleaks не читает .gitignore, поэтому сканируется снимок того, что видит git
+# (отслеживаемое и новое неигнорируемое), а не локальные .env и secrets/.
+# История репозитория сюда не входит: только рабочее дерево.
+security:
+	$(GOVULNCHECK) ./...
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	root=$$(git rev-parse --show-toplevel); \
+	cp "$$(git rev-parse --git-path index)" "$$tmp/index"; \
+	GIT_INDEX_FILE="$$tmp/index" git -C "$$root" add -A; \
+	tree=$$(GIT_INDEX_FILE="$$tmp/index" git -C "$$root" write-tree); \
+	mkdir "$$tmp/tree"; git -C "$$root" archive "$$tree" | tar -x -C "$$tmp/tree"; \
+	cd "$$tmp/tree" && $(GITLEAKS) dir --no-banner --redact .
+
 # Кольцо коммита: секунды, без БД. Полный набор закрывает срез (ci-check).
 commit-check: fmt-check vet lint test-fast
 
-ci-check: migrate-up test vet fmt-check lint build
+ci-check: migrate-up test vet fmt-check lint security build
 
 # DATABASE_URL молча подхватывается из .env, поэтому migrate-* может уехать в
 # чужую базу. Печатаем цель без пароля и требуем ALLOW_REMOTE=1 для всего, что
