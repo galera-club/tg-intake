@@ -430,7 +430,7 @@ func readFile(path string) ([]byte, error) {
 	if path == "" {
 		return nil, errors.New("item has no file")
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь из БД медиа, не из ввода пользователя
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
