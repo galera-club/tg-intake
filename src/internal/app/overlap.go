@@ -87,12 +87,12 @@ type overlapOut struct {
 // подсказывает автору, но не имеет права остановить обращение.
 type Overlap struct {
 	gh    *GitHub
-	llm   *OpenRouter
+	llm   Completer
 	log   *slog.Logger
 	model DialogModel
 }
 
-func NewOverlap(gh *GitHub, llm *OpenRouter, log *slog.Logger, model DialogModel) *Overlap {
+func NewOverlap(gh *GitHub, llm Completer, log *slog.Logger, model DialogModel) *Overlap {
 	return &Overlap{gh: gh, llm: llm, log: log, model: model}
 }
 

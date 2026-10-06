@@ -71,11 +71,11 @@ var (
 // и только потом пишет в БД.
 type Normalizer struct {
 	cases *Cases
-	llm   *OpenRouter
+	llm   Completer
 	log   *slog.Logger
 }
 
-func NewNormalizer(cases *Cases, llm *OpenRouter, log *slog.Logger) *Normalizer {
+func NewNormalizer(cases *Cases, llm Completer, log *slog.Logger) *Normalizer {
 	return &Normalizer{cases: cases, llm: llm, log: log}
 }
 
@@ -430,7 +430,7 @@ func readFile(path string) ([]byte, error) {
 	if path == "" {
 		return nil, errors.New("item has no file")
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь из БД медиа, не из ввода пользователя
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}

@@ -57,7 +57,7 @@ var (
 // валидирует её и только потом пишет в БД.
 type Interview struct {
 	cases   *Cases
-	llm     *OpenRouter
+	llm     Completer
 	log     *slog.Logger
 	rules   Contract
 	model   DialogModel
@@ -71,7 +71,7 @@ type Interview struct {
 	turnSchema json.RawMessage
 }
 
-func NewInterview(cases *Cases, llm *OpenRouter, log *slog.Logger, rules Contract, model DialogModel, rounds int, overlap *Overlap) *Interview {
+func NewInterview(cases *Cases, llm Completer, log *slog.Logger, rules Contract, model DialogModel, rounds int, overlap *Overlap) *Interview {
 	return &Interview{
 		cases:      cases,
 		llm:        llm,

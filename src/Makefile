@@ -9,7 +9,7 @@ endif
 GOOSE := go run -tags='no_sqlite3' github.com/pressly/goose/v3/cmd/goose@v3.27.3
 MIGRATIONS_DIR := ./migrations
 
-.PHONY: run build test test-fast eval eval-compare vet fmt-check lint commit-check ci-check check-db migrate-up migrate-down migrate-reset live check-live-db
+.PHONY: run build test test-fast need-db paid-guard workflows eval eval-compare vet fmt-check lint security commit-check ci-check check-db migrate-up migrate-down migrate-reset live check-live-db
 
 run:
 	go run ./cmd/intake
@@ -20,8 +20,20 @@ build:
 # RUN фильтрует тесты при разборе: make test RUN=TestAuthorSlug.
 # TestMigrations дропает схему и потому смотрит в TEST_DATABASE_URL, а не в
 # DATABASE_URL: иначе make test на .env с dev-контуром стёр бы dev-базу.
-test:
-	go test ./... $(if $(RUN),-run $(RUN) -count=1,)
+test: need-db
+	go test -count=1 ./... $(if $(RUN),-run $(RUN),)
+
+# Без TEST_DATABASE_URL тесты с базой скипнулись бы, и такой прогон ничего не
+# доказывает: цель падает.
+need-db:
+	@test -n "$$TEST_DATABASE_URL" || { echo "TEST_DATABASE_URL is not set: integration tests would be skipped"; exit 1; }
+
+# Предохранитель платного прогона: каждая платная цель зависит от него. Цену
+# ответа код не считает, поэтому потолок - число вызовов модели MAX_CALLS;
+# его соблюдает cappedLLM (internal/app/paidcap_test.go).
+paid-guard:
+	@test "$$PAID_OK" = 1 || { echo "paid run: set PAID_OK=1 after approval"; exit 1; }
+	@test -n "$$MAX_CALLS" || { echo "paid run: set MAX_CALLS"; exit 1; }
 
 # Быстрый ярус без БД: петля внутри среза и кольцо коммита.
 test-fast:
@@ -29,7 +41,7 @@ test-fast:
 
 # Прогон набора eval/cases.jsonl через текущие промты: реальный OpenRouter и
 # TRUNCATE базы TEST_DATABASE_URL. EVAL_OUT - имя файла в eval/results/.
-eval:
+eval: paid-guard
 	go test -tags eval -count=1 -timeout 8h -v -run '^TestEvalRun$$' ./internal/app
 
 # Тот же прогон со сравнением с базой (Р-9): EVAL_BASE и EVAL_OUT по умолчанию
@@ -56,7 +68,7 @@ vet:
 # 3h: liveStepDeadline даёт каждому шагу до двух попыток работы воркера
 # (2*jobTimeout+запас), а сценариев и шагов в них достаточно, чтобы худший
 # случай подряд превысил прежние 2h без единой настоящей поломки.
-live: check-live-db
+live: paid-guard check-live-db
 	@$(GOOSE) -dir $(MIGRATIONS_DIR) postgres "$(LIVE_DATABASE_URL)" up
 	go test -tags live -count=1 -timeout 3h -v -run '^TestLiveRun$$' ./internal/app
 
@@ -82,10 +94,38 @@ fmt-check:
 lint:
 	golangci-lint run --timeout 120s
 
+# Сканеры закреплены версией через go run, как goose: не зависят от PATH машины и CI.
+# v1.8.0 требует Go 1.26: пин поднимается вместе с go в go.mod.
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
+GITLEAKS := go run github.com/zricethezav/gitleaks/v8@v8.30.1
+
+# gitleaks не читает .gitignore, поэтому сканируется снимок того, что видит git
+# (отслеживаемое и новое неигнорируемое), а не локальные .env и secrets/.
+# История репозитория сюда не входит: только рабочее дерево.
+security:
+	$(GOVULNCHECK) ./...
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	root=$$(git rev-parse --show-toplevel); \
+	cp "$$(git rev-parse --git-path index)" "$$tmp/index"; \
+	GIT_INDEX_FILE="$$tmp/index" git -C "$$root" add -A; \
+	tree=$$(GIT_INDEX_FILE="$$tmp/index" git -C "$$root" write-tree); \
+	mkdir "$$tmp/tree"; git -C "$$root" archive "$$tree" | tar -x -C "$$tmp/tree"; \
+	cd "$$tmp/tree" && $(GITLEAKS) dir --no-banner --redact .
+
+ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+ZIZMOR := uvx zizmor@1.30.1
+
+# При правке .github/workflows. В ci-check не входит: на хосте раннера нет uv.
+workflows:
+	@root=$$(git rev-parse --show-toplevel); \
+	if [ -d "$$root/.github/workflows" ]; then \
+	  cd "$$root" && $(ACTIONLINT) && $(ZIZMOR) --no-progress .github/workflows; \
+	else echo "no .github/workflows"; fi
+
 # Кольцо коммита: секунды, без БД. Полный набор закрывает срез (ci-check).
 commit-check: fmt-check vet lint test-fast
 
-ci-check: migrate-up test vet fmt-check lint build
+ci-check: migrate-up test vet fmt-check lint security build
 
 # DATABASE_URL молча подхватывается из .env, поэтому migrate-* может уехать в
 # чужую базу. Печатаем цель без пароля и требуем ALLOW_REMOTE=1 для всего, что
