@@ -44,7 +44,14 @@ jobs:
           go-version-file: src/go.mod
           cache-dependency-path: src/go.sum
 
-      # Один список проверок, он же локальный: миграции, тесты, vet, build.
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          version: v2.13.2
+          working-directory: src
+          install-only: true
+
+      # Один список проверок, он же локальный: миграции, тесты, vet, fmt, lint, security, build.
       - name: Checks
         run: make ci-check
 
