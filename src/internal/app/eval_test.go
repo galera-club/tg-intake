@@ -108,7 +108,7 @@ func TestEvalRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse TEST_DATABASE_URL: %v", err)
 	}
-	cfg.MaxConns = int32(parallel) + 2
+	cfg.MaxConns = int32(parallel) + 2 //nolint:gosec // parallel - малое число из EVAL_PARALLEL
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatalf("open pool: %v", err)
@@ -122,7 +122,7 @@ func TestEvalRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	llm := NewOpenRouter(key, model, proxy, log)
+	llm := newCappedLLM(t, NewOpenRouter(key, model, proxy, log))
 	interview := NewInterview(NewCases(pool, nil, log, 30, 0), llm, log, testRules(t),
 		DialogModel{Name: model, Reasoning: reasoning}, evalRounds, nil)
 
@@ -425,7 +425,7 @@ func checkFailed(n int, done []caseRun) string {
 func writeEvalResult(t *testing.T, name string, result evalResult) {
 	t.Helper()
 	dir := filepath.Join(evalDir, "results")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // каталог результатов eval читается людьми
 		t.Fatalf("create results dir: %v", err)
 	}
 	data, err := json.MarshalIndent(result, "", "  ")
@@ -433,7 +433,7 @@ func writeEvalResult(t *testing.T, name string, result evalResult) {
 		t.Fatalf("encode result: %v", err)
 	}
 	path := filepath.Join(dir, name+".json")
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil { //nolint:gosec // файл результата eval читается людьми
 		t.Fatalf("write result: %v", err)
 	}
 	t.Logf("result: eval/results/%s.json", name)
@@ -444,7 +444,7 @@ func writeEvalResult(t *testing.T, name string, result evalResult) {
 func readEvalResult(t *testing.T, name string) evalResult {
 	t.Helper()
 	path := filepath.Join(evalDir, "results", name+".json")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь собран из имени запуска оператора
 	if err != nil {
 		t.Fatalf("open base %s: %v (снят ли make eval EVAL_OUT=%s?)", path, err, name)
 	}

@@ -211,7 +211,7 @@ func TestLiveRun(t *testing.T) {
 	dialog := DialogModel{Name: model, Reasoning: reasoning}
 
 	cases := NewCases(pool, media, log, liveMaxItems, 0)
-	llm := NewOpenRouter(openrouterKey, dialog.Name, proxy, log)
+	llm := newCappedLLM(t, NewOpenRouter(openrouterKey, dialog.Name, proxy, log))
 	// GITHUB_TOKEN живёт только в этой переменной и в клиенте: в лог и в код
 	// он не идёт нигде дальше.
 	gh := NewGitHub(githubToken, GitHubAPI, statuses, log)
