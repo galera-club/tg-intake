@@ -87,12 +87,12 @@ type docText struct {
 type Lookup struct {
 	cases *Cases
 	gh    *GitHub
-	llm   *OpenRouter
+	llm   Completer
 	log   *slog.Logger
 	model DialogModel
 }
 
-func NewLookup(cases *Cases, gh *GitHub, llm *OpenRouter, log *slog.Logger, model DialogModel) *Lookup {
+func NewLookup(cases *Cases, gh *GitHub, llm Completer, log *slog.Logger, model DialogModel) *Lookup {
 	return &Lookup{cases: cases, gh: gh, llm: llm, log: log, model: model}
 }
 
@@ -242,7 +242,7 @@ func (l *Lookup) askAnswer(ctx context.Context, cs *Case, project Project, loade
 // complete зовёт диалоговую модель по схеме и разбирает ответ. Повтора на
 // невалидный ответ нет: схема strict, а смысл проверяет вызывающий - непригодный
 // ответ становится честным «не нашёл», а не второй генерацией.
-func complete(ctx context.Context, llm *OpenRouter, model DialogModel, step string,
+func complete(ctx context.Context, llm Completer, model DialogModel, step string,
 	schema json.RawMessage, messages []Message, out any) error {
 	raw, err := llm.Complete(ctx, Request{
 		Step:       step,

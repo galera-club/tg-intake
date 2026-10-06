@@ -71,11 +71,11 @@ var (
 // и только потом пишет в БД.
 type Normalizer struct {
 	cases *Cases
-	llm   *OpenRouter
+	llm   Completer
 	log   *slog.Logger
 }
 
-func NewNormalizer(cases *Cases, llm *OpenRouter, log *slog.Logger) *Normalizer {
+func NewNormalizer(cases *Cases, llm Completer, log *slog.Logger) *Normalizer {
 	return &Normalizer{cases: cases, llm: llm, log: log}
 }
 

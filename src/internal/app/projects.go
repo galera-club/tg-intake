@@ -34,12 +34,12 @@ var (
 type Projects struct {
 	cases *Cases
 	gh    *GitHub
-	llm   *OpenRouter
+	llm   Completer
 	model DialogModel
 	log   *slog.Logger
 }
 
-func NewProjects(cases *Cases, gh *GitHub, llm *OpenRouter, model DialogModel, log *slog.Logger) *Projects {
+func NewProjects(cases *Cases, gh *GitHub, llm Completer, model DialogModel, log *slog.Logger) *Projects {
 	return &Projects{cases: cases, gh: gh, llm: llm, model: model, log: log}
 }
 
