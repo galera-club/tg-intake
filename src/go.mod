@@ -1,6 +1,6 @@
 module github.com/daniil4545/tg-intake
 
-go 1.25.7
+go 1.25.13
 
 require (
 	github.com/jackc/pgx/v5 v5.10.0

@@ -95,7 +95,8 @@ lint:
 	golangci-lint run --timeout 120s
 
 # Сканеры закреплены версией через go run, как goose: не зависят от PATH машины и CI.
-GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.8.0
+# v1.8.0 требует Go 1.26: пин поднимается вместе с go в go.mod.
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 GITLEAKS := go run github.com/zricethezav/gitleaks/v8@v8.30.1
 
 # gitleaks не читает .gitignore, поэтому сканируется снимок того, что видит git
