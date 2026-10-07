@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/daniil4545/tg-intake/internal/app"
+	"github.com/galera-club/tg-intake/internal/app"
 )
 
 // version проставляется линкером: -ldflags "-X main.version=<sha>". Приёмка

@@ -99,7 +99,7 @@ func TestLookupAnswersWithLink(t *testing.T) {
 	if len(sent) != 2 {
 		t.Fatalf("сообщений из очереди: %d, ожидались ответ автору и строка владельцу", len(sent))
 	}
-	want := "https://github.com/daniil4545/tg-intake/blob/prod/docs/prd.md"
+	want := "https://github.com/galera-club/tg-intake/blob/prod/docs/prd.md"
 	if !strings.Contains(sent[0].Text, want) {
 		t.Errorf("ссылка на источник: %q, ожидалась %s", sent[0].Text, want)
 	}

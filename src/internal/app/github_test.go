@@ -283,7 +283,7 @@ func TestPublishMixedLabels(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
 				t.Errorf("decode issue: %v", err)
 			}
-			fmt.Fprint(w, `{"number": 78, "html_url": "https://github.com/daniil4545/tg-intake/issues/78"}`)
+			fmt.Fprint(w, `{"number": 78, "html_url": "https://github.com/galera-club/tg-intake/issues/78"}`)
 			return
 		}
 		fmt.Fprint(w, "[]")
@@ -335,7 +335,7 @@ func TestPublishFindsIssueOnFirstAttempt(t *testing.T) {
 			t.Error("создан второй issue")
 		}
 		if r.Method == http.MethodGet && r.URL.Path == "/repos/daniil4545/tg-intake/issues" {
-			found := []Issue{{Number: 77, HTMLURL: "https://github.com/daniil4545/tg-intake/issues/77",
+			found := []Issue{{Number: 77, HTMLURL: "https://github.com/galera-club/tg-intake/issues/77",
 				Body: "тело\n" + caseMarker(cs.ID)}}
 			if err := json.NewEncoder(w).Encode(found); err != nil {
 				t.Errorf("encode issues: %v", err)

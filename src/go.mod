@@ -1,4 +1,4 @@
-module github.com/daniil4545/tg-intake
+module github.com/galera-club/tg-intake
 
 go 1.25.13
 

@@ -23,7 +23,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/daniil4545/tg-intake
+  IMAGE_NAME: ghcr.io/galera-club/tg-intake
 
 jobs:
   checks:
