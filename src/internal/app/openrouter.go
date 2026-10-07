@@ -317,7 +317,7 @@ func (c *OpenRouter) send(ctx context.Context, body []byte) (llmResult, bool, er
 	httpReq.Header.Set("Content-Type", "application/json")
 	// Идентификация приложения: OpenRouter ждёт эти два заголовка, а дефолтный
 	// User-Agent Go-клиента отличает нас от браузера для edge-защиты.
-	httpReq.Header.Set("HTTP-Referer", "https://github.com/daniil4545/tg-intake")
+	httpReq.Header.Set("HTTP-Referer", "https://github.com/galera-club/tg-intake")
 	httpReq.Header.Set("X-Title", "tg-intake")
 	httpReq.Header.Set("User-Agent", "tg-intake/1.0")
 

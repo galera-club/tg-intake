@@ -156,7 +156,7 @@ func TestOverlapEmptyWithoutItems(t *testing.T) {
 // не восстанавливая его с нуля. Место раздела фиксировано: после ссылок автора и
 // до строки «Не уточнено».
 func TestIssueBodyKeepsOverlap(t *testing.T) {
-	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0)
+	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0, "")
 	cs := &Case{
 		Kind: "feature", Summary: "## Случай\n\nНужно логировать отказы",
 		Overlap: "- [Тикет #57 Автологирование](https://github.com/acme/proj/issues/57), закрыт: та же механика",

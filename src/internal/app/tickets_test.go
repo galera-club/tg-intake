@@ -30,7 +30,7 @@ func TestListSkipsPullRequests(t *testing.T) {
 	publishCase(t, cases, 7001, 12)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues": `[
+		"GET /repos/galera-club/tg-intake/issues": `[
 			{"number": 13, "pull_request": {"url": "x"}, "labels": [{"name": "status:prod"}]},
 			{"number": 12, "labels": [{"name": "type:bug"}, {"name": "status:in-progress"}]}]`,
 	})
@@ -57,8 +57,8 @@ func TestListBackfillsOldTicket(t *testing.T) {
 	publishCase(t, cases, 7009, 5)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues":   `[{"number": 120, "labels": []}]`,
-		"GET /repos/daniil4545/tg-intake/issues/5": `{"number": 5, "labels": [{"name": "status:prod"}]}`,
+		"GET /repos/galera-club/tg-intake/issues":   `[{"number": 120, "labels": []}]`,
+		"GET /repos/galera-club/tg-intake/issues/5": `{"number": 5, "labels": [{"name": "status:prod"}]}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)
 
@@ -106,7 +106,7 @@ func TestCancelRemovesAllStatusLabels(t *testing.T) {
 
 	seen := &requestLog{}
 	server := recordingStub(t, seen, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/30": `{"number": 30, "labels": [
+		"GET /repos/galera-club/tg-intake/issues/30": `{"number": 30, "labels": [
 			{"name": "type:bug"}, {"name": "status:in-progress"}, {"name": "status:new"}]}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)
@@ -117,10 +117,10 @@ func TestCancelRemovesAllStatusLabels(t *testing.T) {
 	}
 
 	want := []string{
-		"POST /repos/daniil4545/tg-intake/issues/30/labels",
-		"DELETE /repos/daniil4545/tg-intake/issues/30/labels/status:in-progress",
-		"DELETE /repos/daniil4545/tg-intake/issues/30/labels/status:new",
-		"PATCH /repos/daniil4545/tg-intake/issues/30",
+		"POST /repos/galera-club/tg-intake/issues/30/labels",
+		"DELETE /repos/galera-club/tg-intake/issues/30/labels/status:in-progress",
+		"DELETE /repos/galera-club/tg-intake/issues/30/labels/status:new",
+		"PATCH /repos/galera-club/tg-intake/issues/30",
 	}
 	for _, w := range want {
 		if !seen.has(w) {
@@ -147,7 +147,7 @@ func TestCancelOutcomeMarked(t *testing.T) {
 	cs := publishCase(t, cases, 7005, 50)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/50": `{"number": 50, "labels": [{"name": "status:prod"}]}`,
+		"GET /repos/galera-club/tg-intake/issues/50": `{"number": 50, "labels": [{"name": "status:prod"}]}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)
 
@@ -200,7 +200,7 @@ func TestCancelTwiceOneEvent(t *testing.T) {
 	cs := publishCase(t, cases, 7005, 50)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/50": `{"number": 50, "labels": [{"name": "status:new"}]}`,
+		"GET /repos/galera-club/tg-intake/issues/50": `{"number": 50, "labels": [{"name": "status:new"}]}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)
 
@@ -391,10 +391,10 @@ func TestCancelResumesAfterPartialFailure(t *testing.T) {
 	if err := tickets.RunCancel(context.Background(), job); err != nil {
 		t.Fatalf("повтор: %v", err)
 	}
-	if !seen.has("PATCH /repos/daniil4545/tg-intake/issues/70") {
+	if !seen.has("PATCH /repos/galera-club/tg-intake/issues/70") {
 		t.Errorf("повтор не закрыл issue; запросы: %v", seen.list())
 	}
-	if !seen.has("DELETE /repos/daniil4545/tg-intake/issues/70/labels/status:in-progress") {
+	if !seen.has("DELETE /repos/galera-club/tg-intake/issues/70/labels/status:in-progress") {
 		t.Errorf("повтор не снял прежнюю метку; запросы: %v", seen.list())
 	}
 }

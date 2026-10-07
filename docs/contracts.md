@@ -121,6 +121,16 @@
   `GET /issues?state=all&per_page=30&sort=created&direction=desc`: дубль ищется
   сразу после потерянного ответа, нужный тикет лежит в начале списка. Это
   защита от дубля при потерянном ответе на успешный запрос.
+- Доска организации (GitHub Projects): после создания или поиска тикета
+  `GET /repos/{owner}/{repo}/issues/{n}` даёт `node_id`, мутация GraphQL
+  `addProjectV2ItemById(projectId: GITHUB_BOARD_ID, contentId: node_id)` ставит
+  карточку. Права: организации `Projects: read and write`. Мутация идемпотентна:
+  тикет, который уже на доске, возвращает свою карточку (проверено 07.10). Отказ
+  приходит HTTP 200 с `errors` (`FORBIDDEN`, «Resource not accessible by personal
+  access token»), поэтому ошибкой считается `errors` или пустой `item`. Сбой доски
+  публикацию не останавливает: лог `board_add_failed` и строка в уведомлении
+  владельцу. Правило автодобавления доски не годится: на тарифе Free оно одно и
+  занято репозиторием задач.
 - Лимиты GitHub (5000 запросов в час и вторичные) на наших объёмах не
   достигаются; публикация всё равно однопоточная.
 - Заголовки `Accept: application/vnd.github+json` и

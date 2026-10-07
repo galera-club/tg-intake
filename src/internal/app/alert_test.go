@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,7 +26,7 @@ func TestAlertMessages(t *testing.T) {
 	cs := &Case{Title: "Не грузится карточка", Incomplete: false}
 	url := "https://github.com/o/r/issues/42"
 
-	got := alertPublished(project, cs, author, 42, url, true)
+	got := alertPublished(project, cs, author, 42, url, true, true)
 	for _, want := range []string{"Новый тикет: crm-bot", "Не грузится карточка",
 		"Иван Петров (@ivan)", "#42 " + url, "incomplete"} {
 		if !strings.Contains(got, want) {
@@ -33,7 +35,7 @@ func TestAlertMessages(t *testing.T) {
 	}
 
 	cs.Incomplete = true
-	if strings.Contains(alertPublished(project, cs, author, 42, url, false), "incomplete") {
+	if strings.Contains(alertPublished(project, cs, author, 42, url, false, true), "incomplete") {
 		t.Error("полный тикет (по параметру) помечен недобранным контрактом")
 	}
 
@@ -169,12 +171,12 @@ func publishThrough(t *testing.T, cases *Cases, userID, alertChat int64) (*Case,
 	}
 
 	server := githubStub(t, map[string]string{
-		"POST /repos/daniil4545/tg-intake/issues": `{"number": 77,
-			"html_url": "https://github.com/daniil4545/tg-intake/issues/77"}`,
+		"POST /repos/galera-club/tg-intake/issues": `{"number": 77,
+			"html_url": "https://github.com/galera-club/tg-intake/issues/77"}`,
 	})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return reload(t, cases, cs.ID),
-		NewPublisher(cases, NewGitHub("token", server.URL, nil, log), testRules(t), log, alertChat)
+		NewPublisher(cases, NewGitHub("token", server.URL, nil, log), testRules(t), log, alertChat, "")
 }
 
 // TestCancelAlertsOwner: отмена тикета автором доходит до владельца тем же
@@ -186,8 +188,8 @@ func TestCancelAlertsOwner(t *testing.T) {
 	cs := publishCase(t, cases, 7101, 60)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/60": `{"number": 60,
-			"html_url": "https://github.com/daniil4545/tg-intake/issues/60", "labels": []}`,
+		"GET /repos/galera-club/tg-intake/issues/60": `{"number": 60,
+			"html_url": "https://github.com/galera-club/tg-intake/issues/60", "labels": []}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)
 	tickets.alertChat = testAlertChat
@@ -216,5 +218,117 @@ func TestCancelAlertsOwner(t *testing.T) {
 	}
 	if n := countJobs(t, pool, JobNotify, cs.ID); n != 2 {
 		t.Errorf("после повтора сообщений в очереди: %d, ожидалось 2", n)
+	}
+}
+
+// publishToBoard - издатель с доской, записью запросов к GitHub и логом в logs.
+func publishToBoard(t *testing.T, cases *Cases, userID int64, board string, routes map[string]string, logs *bytes.Buffer) (*Case, *Publisher, *requestLog) {
+	t.Helper()
+	cs, _ := publishThrough(t, cases, userID, testAlertChat)
+	seen := &requestLog{}
+	server := recordingStub(t, seen, routes)
+	log := slog.New(slog.NewTextHandler(logs, nil))
+	return cs, NewPublisher(cases, NewGitHub("token", server.URL, nil, log), testRules(t), log, testAlertChat, board), seen
+}
+
+func alertText(t *testing.T, cases *Cases, caseID string) string {
+	t.Helper()
+	var text string
+	err := cases.pool.QueryRow(context.Background(), `
+		SELECT payload->>'text' FROM jobs
+		WHERE kind = $1 AND payload->>'case_id' = $2 AND (payload->>'chat_id')::bigint = $3`,
+		JobNotify, caseID, int64(testAlertChat)).Scan(&text)
+	if err != nil {
+		t.Fatalf("уведомление владельцу не поставлено: %v", err)
+	}
+	return text
+}
+
+var createdIssue = map[string]string{
+	"POST /repos/galera-club/tg-intake/issues": `{"number": 77,
+		"html_url": "https://github.com/galera-club/tg-intake/issues/77"}`,
+	"GET /repos/galera-club/tg-intake/issues/77": `{"number": 77, "node_id": "I_77"}`,
+}
+
+// TestPublishBoardFailureKeepsTicket: доска отказала (нет права, неверный id) -
+// тикет всё равно опубликован, работа без ошибки, владелец видит строку о доске.
+func TestPublishBoardFailureKeepsTicket(t *testing.T) {
+	ctx := context.Background()
+	cases := newTestCases(t, testPool(t), t.TempDir())
+	routes := maps.Clone(createdIssue)
+	routes["POST /graphql"] = `{"data": {"addProjectV2ItemById": null},
+		"errors": [{"type": "FORBIDDEN", "message": "Resource not accessible by personal access token"}]}`
+	var logs bytes.Buffer
+	cs, publisher, _ := publishToBoard(t, cases, 7110, "PVT_board", routes, &logs)
+
+	job := Job{ID: 1, Kind: JobPublish, Payload: []byte(`{"case_id":"` + cs.ID + `"}`)}
+	if err := publisher.Run(ctx, job); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if got := reload(t, cases, cs.ID); got.Status != "published" || got.IssueNumber != 77 {
+		t.Errorf("обращение: статус %s, issue %d; ожидалось published, 77", got.Status, got.IssueNumber)
+	}
+	if text := alertText(t, cases, cs.ID); !strings.Contains(text, "На доску Galera не добавлен") {
+		t.Errorf("в уведомлении нет строки о доске: %q", text)
+	}
+	if !strings.Contains(logs.String(), "board_add_failed") {
+		t.Errorf("сбой доски не в логе: %s", logs.String())
+	}
+}
+
+// TestPublishRetryAddsSameIssue: ответ на создание потерян, повтор находит тикет
+// по маркеру - второго тикета нет, на доску идёт тот же, владельцу одно сообщение.
+func TestPublishRetryAddsSameIssue(t *testing.T) {
+	ctx := context.Background()
+	cases := newTestCases(t, testPool(t), t.TempDir())
+	cs, _ := publishThrough(t, cases, 7111, testAlertChat)
+	routes := map[string]string{
+		"GET /repos/galera-club/tg-intake/issues": `[{"number": 77,
+			"html_url": "https://github.com/galera-club/tg-intake/issues/77",
+			"body": "` + caseMarker(cs.ID) + `"}]`,
+		"GET /repos/galera-club/tg-intake/issues/77": `{"number": 77, "node_id": "I_77"}`,
+		"POST /graphql": `{"data": {"addProjectV2ItemById": {"item": {"id": "PVTI_1"}}}}`,
+	}
+	seen := &requestLog{}
+	server := recordingStub(t, seen, routes)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	publisher := NewPublisher(cases, NewGitHub("token", server.URL, nil, log), testRules(t), log, testAlertChat, "PVT_board")
+
+	job := Job{ID: 1, Kind: JobPublish, Payload: []byte(`{"case_id":"` + cs.ID + `"}`)}
+	if err := publisher.Run(ctx, job); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if seen.has("POST /repos/galera-club/tg-intake/issues") {
+		t.Error("повтор создал второй тикет")
+	}
+	if !seen.has("POST /graphql") {
+		t.Error("найденный тикет не ушёл на доску")
+	}
+	if text := alertText(t, cases, cs.ID); strings.Contains(text, "доску") {
+		t.Errorf("доска приняла тикет, а уведомление о сбое: %q", text)
+	}
+	if n := countJobs(t, cases.pool, JobNotify, cs.ID); n != 2 {
+		t.Errorf("сообщений в очереди: %d, ожидалось 2 (автору и владельцу)", n)
+	}
+}
+
+// TestPublishWithoutBoard: пустой GITHUB_BOARD_ID - к GraphQL ни одного
+// запроса, публикация как до доски.
+func TestPublishWithoutBoard(t *testing.T) {
+	ctx := context.Background()
+	cases := newTestCases(t, testPool(t), t.TempDir())
+	cs, publisher, seen := publishToBoard(t, cases, 7112, "", createdIssue, &bytes.Buffer{})
+
+	job := Job{ID: 1, Kind: JobPublish, Payload: []byte(`{"case_id":"` + cs.ID + `"}`)}
+	if err := publisher.Run(ctx, job); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	for _, request := range seen.list() {
+		if strings.Contains(request, "/graphql") || strings.HasSuffix(request, "/issues/77") {
+			t.Errorf("без доски ушёл запрос %s", request)
+		}
+	}
+	if text := alertText(t, cases, cs.ID); strings.Contains(text, "доску") {
+		t.Errorf("без доски в уведомлении строка о ней: %q", text)
 	}
 }

@@ -124,7 +124,7 @@ case "$action" in
     deploy-state)
         # Зелёный workflow означает «Coolify принял запрос». Выкат мог не
         # начаться: образ не стянут, помощник деплоя висит, очередь стоит.
-        remote="echo '--- образы кандидата ---'; docker images ghcr.io/daniil4545/tg-intake --format '{{.Tag}} {{.CreatedSince}}' | head -5; echo '--- сам coolify ---'; docker ps -a --format '{{.Names}} {{.Status}}' | grep -i coolify | head -8; echo '--- ошибки coolify ---'; docker logs coolify --since 30m 2>&1 | grep -iE 'error|exception|failed|intake' | tail -12 || echo 'logs=empty'"
+        remote="echo '--- образы кандидата ---'; docker images ghcr.io/galera-club/tg-intake --format '{{.Tag}} {{.CreatedSince}}' | head -5; echo '--- сам coolify ---'; docker ps -a --format '{{.Names}} {{.Status}}' | grep -i coolify | head -8; echo '--- ошибки coolify ---'; docker logs coolify --since 30m 2>&1 | grep -iE 'error|exception|failed|intake' | tail -12 || echo 'logs=empty'"
         ;;
     deploy-config)
         # Окружение контейнера отвечает на вопрос «что получил работающий

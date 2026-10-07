@@ -29,6 +29,8 @@ type Config struct {
 	// бы выбор провайдеров.
 	ReasoningDialog string
 	GitHubToken     string
+	// Node id доски организации (PVT_...); пусто - тикеты на доску не ставятся.
+	BoardID         string
 	MediaDir        string
 	MaxItems        int
 	InterviewRounds int
@@ -79,6 +81,7 @@ func LoadConfig() (Config, error) {
 		ModelMedia:    valueOr(os.Getenv("OPENROUTER_MODEL_MEDIA"), "google/gemini-3.1-flash-lite"),
 		ModelDialog:   valueOr(os.Getenv("OPENROUTER_MODEL_DIALOG"), "deepseek/deepseek-v4-flash-0731"),
 		GitHubToken:   os.Getenv("GITHUB_TOKEN"),
+		BoardID:       os.Getenv("GITHUB_BOARD_ID"),
 		// Дефолт низкий, а не выключенный: интервью выигрывает от короткого
 		// раздумья, но не от того, которое дольше самого ответа.
 		ReasoningDialog: valueOr(os.Getenv("OPENROUTER_REASONING_DIALOG"), "low"),
