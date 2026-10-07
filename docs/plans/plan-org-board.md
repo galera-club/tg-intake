@@ -76,12 +76,12 @@ sequenceDiagram
 
 | # | Дано / когда / тогда | Риск | Факт проверки | Ярус | Тест |
 |---|---|---|---|---|---|
-| 1 | GraphQL 200 с `errors` (id доски, право Projects) | 2 | `published` в `cases`, лог `board_add_failed`, строка о доске в алерте, работа без ошибки | интегр. | |
-| 2 | Повтор работы после сбоя до транзакции | 6 | один `POST /issues`, мутация с тем же `contentId`, одно уведомление | интегр. | |
-| 3 | `GITHUB_BOARD_ID` пуст | 5 | 0 запросов к `/graphql`, алерт без строки о доске | интегр. | |
-| 4 | Нет `node_id`; `data:null`; пустой `item.id` | 2 | ошибка без паники; в мутации `projectId`=доска, `contentId`=`node_id` | быстрый | |
+| 1 | GraphQL 200 с `errors` (id доски, право) | 2 | `published`, лог `board_add_failed`, строка о доске в алерте, работа без ошибки | интегр. | `TestPublishBoardFailureKeepsTicket` |
+| 2 | Повтор работы после сбоя до транзакции | 6 | один `POST /issues`, мутация с тем же `contentId`, одно уведомление | интегр. | `TestPublishRetryAddsSameIssue` |
+| 3 | `GITHUB_BOARD_ID` пуст | 5 | 0 запросов к `/graphql`, алерт без строки о доске | интегр. | `TestPublishWithoutBoard` |
+| 4 | Нет `node_id`; `data:null`; пустой `item.id` | 2 | ошибка без паники; в мутации `projectId`=доска, `contentId`=`node_id` | быстрый | `TestAddToBoard`, `TestAddToBoardRejected` |
 | 5 | 0013: строки `daniil4545` и чужого владельца (down пустой, раздел 2) | 4 | up меняет только `daniil4545` | интегр. | `TestMigration0013` |
-| 6 | Смена пути модуля | 5 | `make -C src ci-check` зелёный | быстрый | |
+| 6 | Смена пути модуля | 5 | `make -C src ci-check` зелёный | быстрый | `make ci-check` |
 
 ## 4. Данные и состояния
 
@@ -140,26 +140,26 @@ func alertPublished(p Project, cs *Case, author User, number int, url string, in
 |---|---|---|---|
 | 1. Адреса galera-club | модуль, образ, AGENTS, пример env | `make commit-check`; `daniil4545` остаётся только в списке «оставляем» ниже | done |
 | 2. Миграция владельца | проекты и заглушки в `galera-club` | `TestMigration0013`, `TestMigrations`, `make test` | done |
-| 3. Тикет на доску | `AddToBoard`, конфиг, уведомление | `TestAddToBoard`, `TestAddToBoardGraphQLError`, `TestPublishBoardFailureKeepsTicket`, `TestPublishWithoutBoard`, `TestAlertPublishedNotOnBoard` | pending |
+| 3. Тикет на доску | `AddToBoard`, конфиг, уведомление | `TestAddToBoard`, `TestAddToBoardRejected`, `TestPublishBoardFailureKeepsTicket`, `TestPublishRetryAddsSameIssue`, `TestPublishWithoutBoard` | done |
 | 4. Документы | contracts, prd, CHANGELOG | чтение | pending |
 
 Оставляем `daniil4545`: логин в guard `deploy.yml:76,111`; применённая `0002_seed_project.sql`;
 песочница `intake-sandbox` (`Makefile:58`, `live_test.go:26,50`); фикстуры разбора
-ссылок `projects_test.go`; история в `docs/acceptance`, `docs/specs`, `CHANGELOG.md`.
+ссылок `projects_test.go`; история в `docs/` и `CHANGELOG.md`.
 
 ## 7. Критерий приёмки
 
 - Команда: `make -C src ci-check` зелёная.
 - Проба права выполнена 07.10 (раздел 2).
 - Не автоматизируется: живой тикет через бота - приёмка релиза 0.2.4.
-- Не проверяем: поля и колонку карточки, их ставит доска.
+- Не проверяем: поля карточки, их ставит доска.
 
 ## 8. Обязательный хвост среза
 
 | Шаг | Отметка |
 |---|---|
-| Триаж, метки | #102 сверен с продом 07.10, `status:in-progress` |
-| Регрессор | pending |
-| Ревью, мердж, прогон | `code-reviewer`, PR в `prod`, `ci-check`: pending |
+| Триаж, метки | #102 сверен 07.10, `in-progress` |
+| Регрессор | - |
+| Ревью, мердж | `code-reviewer`, PR в `prod` |
 | Журнал | `finish` |
 | Деплой | релиз 0.2.4 отдельным тикетом, `coolify-deploy.sh` |

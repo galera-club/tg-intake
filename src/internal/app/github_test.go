@@ -26,7 +26,7 @@ func testLog(t *testing.T) *slog.Logger {
 // автор узнаёт свой тикет в боте. Молчание модели тикет не останавливает, но
 // тогда раздела нет вовсе, а не пустая рубрика.
 func TestIssueBodyStartsWithBrief(t *testing.T) {
-	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0)
+	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0, "")
 	cs := &Case{Kind: "bug", Brief: "Заявка не сохраняется у менеджеров с утра.",
 		Summary: "## Случай\n\nФорма гасит кнопку"}
 
@@ -220,7 +220,7 @@ func TestLookupFailedTextSeparatesDenial(t *testing.T) {
 // уточнено» перед маркером, а не списком «Не разобрано»; при закрытом ядре
 // строки нет вовсе (R4).
 func TestIssueBodyUnclear(t *testing.T) {
-	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0)
+	publisher := NewPublisher(nil, nil, testRules(t), testLog(t), 0, "")
 	const marker = "<!-- marker -->"
 
 	tests := []struct {
@@ -290,7 +290,7 @@ func TestPublishMixedLabels(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	publisher := NewPublisher(cases, NewGitHub("token", server.URL, nil, testLog(t)), testRules(t), testLog(t), 0)
+	publisher := NewPublisher(cases, NewGitHub("token", server.URL, nil, testLog(t)), testRules(t), testLog(t), 0, "")
 	job := Job{ID: 1, Kind: JobPublish, Payload: []byte(`{"case_id":"` + cs.ID + `"}`)}
 	if err := publisher.Run(ctx, job); err != nil {
 		t.Fatalf("publish: %v", err)
@@ -346,12 +346,92 @@ func TestPublishFindsIssueOnFirstAttempt(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	publisher := NewPublisher(cases, NewGitHub("token", server.URL, nil, testLog(t)), testRules(t), testLog(t), 0)
+	publisher := NewPublisher(cases, NewGitHub("token", server.URL, nil, testLog(t)), testRules(t), testLog(t), 0, "")
 	job := Job{ID: 1, Kind: JobPublish, Attempts: 1, Payload: []byte(`{"case_id":"` + cs.ID + `"}`)}
 	if err := publisher.Run(ctx, job); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 	if got := reload(t, cases, cs.ID); got.IssueNumber != 77 {
 		t.Errorf("обращение не привязано к найденному issue 77: %v", got.IssueNumber)
+	}
+}
+
+// boardStub отвечает на чтение issue 77 и на GraphQL, тело мутации кладёт в
+// mutation: проверяется, что на доску ушёл именно этот тикет.
+func boardStub(t *testing.T, issue, graphql string, mutation *[]byte) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method + " " + r.URL.Path {
+		case "GET /repos/galera-club/tg-intake/issues/77":
+			fmt.Fprint(w, issue)
+		case "POST /graphql":
+			*mutation, _ = io.ReadAll(r.Body)
+			fmt.Fprint(w, graphql)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// TestAddToBoard: мутация получает доску из конфига и node_id тикета, ответ -
+// id карточки.
+func TestAddToBoard(t *testing.T) {
+	var mutation []byte
+	server := boardStub(t, `{"number": 77, "node_id": "I_77"}`,
+		`{"data": {"addProjectV2ItemById": {"item": {"id": "PVTI_1"}}}}`, &mutation)
+	gh := NewGitHub("token", server.URL, testStatuses, testLog(t))
+
+	item, err := gh.AddToBoard(context.Background(), Project{Owner: "galera-club", Repo: "tg-intake"}, 77, "PVT_board")
+	if err != nil {
+		t.Fatalf("add to board: %v", err)
+	}
+	if item != "PVTI_1" {
+		t.Errorf("карточка %q, ожидалась PVTI_1", item)
+	}
+	var sent struct {
+		Query     string            `json:"query"`
+		Variables map[string]string `json:"variables"`
+	}
+	if err := json.Unmarshal(mutation, &sent); err != nil {
+		t.Fatalf("тело мутации не JSON: %v: %s", err, mutation)
+	}
+	if !strings.Contains(sent.Query, "addProjectV2ItemById") ||
+		sent.Variables["board"] != "PVT_board" || sent.Variables["issue"] != "I_77" {
+		t.Errorf("мутация: %s", mutation)
+	}
+}
+
+// TestAddToBoardRejected: GitHub отвечает 200, но карточки нет - это ошибка, а
+// не успех. Без node_id мутация не уходит вовсе.
+func TestAddToBoardRejected(t *testing.T) {
+	tests := []struct {
+		name, issue, graphql string
+		want                 string
+	}{
+		{"нет права", `{"number": 77, "node_id": "I_77"}`,
+			`{"data": {"addProjectV2ItemById": null}, "errors": [{"type": "FORBIDDEN",
+			"message": "Resource not accessible by personal access token"}]}`, "Resource not accessible"},
+		{"пустой ответ", `{"number": 77, "node_id": "I_77"}`, `{"data": null}`, "no item"},
+		{"без карточки", `{"number": 77, "node_id": "I_77"}`,
+			`{"data": {"addProjectV2ItemById": {"item": {"id": ""}}}}`, "no item"},
+		{"без node_id", `{"number": 77}`, `{}`, "node_id"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var mutation []byte
+			server := boardStub(t, tt.issue, tt.graphql, &mutation)
+			gh := NewGitHub("token", server.URL, testStatuses, testLog(t))
+
+			_, err := gh.AddToBoard(context.Background(), Project{Owner: "galera-club", Repo: "tg-intake"}, 77, "PVT_board")
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("ошибка %v, ожидалась с %q", err, tt.want)
+			}
+			if tt.name == "без node_id" && mutation != nil {
+				t.Errorf("мутация ушла без node_id: %s", mutation)
+			}
+		})
 	}
 }

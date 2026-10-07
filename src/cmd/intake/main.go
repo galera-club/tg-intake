@@ -100,7 +100,7 @@ func main() {
 	github := app.NewGitHub(cfg.GitHubToken, app.GitHubAPI, statuses, log)
 	overlap := app.NewOverlap(github, llm, log, dialog)
 	interview := app.NewInterview(cases, llm, log, rules, dialog, cfg.InterviewRounds, overlap)
-	publisher := app.NewPublisher(cases, github, rules, log, cfg.AlertChatID)
+	publisher := app.NewPublisher(cases, github, rules, log, cfg.AlertChatID, cfg.BoardID)
 
 	checkGitHub(ctx, pool, github, log)
 

@@ -1209,7 +1209,7 @@ func TestPublishSkipsCancelled(t *testing.T) {
 	pool := testPool(t)
 	cases := newTestCases(t, pool, t.TempDir())
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	publisher := NewPublisher(cases, NewGitHub("", GitHubAPI, nil, log), testRules(t), log, 0)
+	publisher := NewPublisher(cases, NewGitHub("", GitHubAPI, nil, log), testRules(t), log, 0, "")
 
 	cs := startInterview(t, cases, 6003, 3)
 	if _, err := pool.Exec(ctx, `UPDATE cases SET status = 'cancelled' WHERE id = $1`, cs.ID); err != nil {

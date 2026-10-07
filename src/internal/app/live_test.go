@@ -217,7 +217,7 @@ func TestLiveRun(t *testing.T) {
 	gh := NewGitHub(githubToken, GitHubAPI, statuses, log)
 	overlap := NewOverlap(gh, llm, log, dialog)
 	interview := NewInterview(cases, llm, log, rules, dialog, liveRounds, overlap)
-	publisher := NewPublisher(cases, gh, rules, log, 0)
+	publisher := NewPublisher(cases, gh, rules, log, 0, "")
 	normalizer := NewNormalizer(cases, llm, log)
 	ticketsSvc := NewTickets(cases, gh, statuses, log, 0)
 	projectsSvc := NewProjects(cases, gh, llm, dialog, log)

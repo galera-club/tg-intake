@@ -175,6 +175,61 @@ func (g *GitHub) CreateIssue(ctx context.Context, p Project, title, body string,
 	return out.Number, out.HTMLURL, nil
 }
 
+// AddToBoard кладёт тикет проекта на доску организации и возвращает id карточки.
+// Мутация идемпотентна: тикет, который уже на доске, возвращает свою карточку.
+// GitHub отвечает 200 и при отказе, поэтому ошибка - это errors или пустой item.
+func (g *GitHub) AddToBoard(ctx context.Context, p Project, number int, board string) (string, error) {
+	// Бюджет на весь шаг: повторы двух запросов не должны съесть время работы,
+	// в которое ещё укладывается транзакция публикации.
+	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
+	defer cancel()
+
+	issue, err := g.GetIssue(ctx, p, number, false)
+	if err != nil {
+		return "", err
+	}
+	if issue.NodeID == "" {
+		return "", fmt.Errorf("issue %d has no node_id", number)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"query": `mutation($board: ID!, $issue: ID!) {
+			addProjectV2ItemById(input: {projectId: $board, contentId: $issue}) { item { id } }
+		}`,
+		"variables": map[string]string{"board": board, "issue": issue.NodeID},
+	})
+	if err != nil {
+		return "", fmt.Errorf("build board mutation: %w", err)
+	}
+	raw, err := g.call(ctx, http.MethodPost, "/graphql", payload)
+	if err != nil {
+		return "", err
+	}
+
+	var out struct {
+		Data struct {
+			Add *struct {
+				Item struct {
+					ID string `json:"id"`
+				} `json:"item"`
+			} `json:"addProjectV2ItemById"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", fmt.Errorf("decode board mutation: %w", err)
+	}
+	if len(out.Errors) > 0 {
+		return "", fmt.Errorf("add issue %d to board: %s", number, out.Errors[0].Message)
+	}
+	if out.Data.Add == nil || out.Data.Add.Item.ID == "" {
+		return "", fmt.Errorf("add issue %d to board: no item in response", number)
+	}
+	return out.Data.Add.Item.ID, nil
+}
+
 // FindIssue ищет свой маркер среди последних тикетов репозитория. Нужен на
 // повторе: ответ на успешный запрос мог потеряться, и без проверки обращение
 // уехало бы в GitHub вторым тикетом.
@@ -200,6 +255,7 @@ func (g *GitHub) FindIssue(ctx context.Context, p Project, marker string) (int, 
 // активном репозитории они вытесняют тикеты из окна.
 type Issue struct {
 	Number      int    `json:"number"`
+	NodeID      string `json:"node_id"`
 	HTMLURL     string `json:"html_url"`
 	Title       string `json:"title"`
 	State       string `json:"state"`
@@ -502,10 +558,12 @@ type Publisher struct {
 	log   *slog.Logger
 	// Чат уведомлений владельца; 0 - уведомления выключены.
 	alertChat int64
+	// Node id доски организации; пусто - тикет на доску не ставится.
+	board string
 }
 
-func NewPublisher(cases *Cases, gh *GitHub, rules Contract, log *slog.Logger, alertChat int64) *Publisher {
-	return &Publisher{cases: cases, gh: gh, rules: rules, log: log, alertChat: alertChat}
+func NewPublisher(cases *Cases, gh *GitHub, rules Contract, log *slog.Logger, alertChat int64, board string) *Publisher {
+	return &Publisher{cases: cases, gh: gh, rules: rules, log: log, alertChat: alertChat, board: board}
 }
 
 // Run создаёт issue по обращению. Идемпотентен трижды: по ключу работы, по уже
@@ -578,6 +636,18 @@ func (p *Publisher) Run(ctx context.Context, job Job) error {
 		}
 	}
 
+	// Доска - производное от тикета: её сбой публикацию не останавливает,
+	// иначе автор получил бы отказ на уже созданный тикет. Карточку ставит
+	// разбор по строке в уведомлении владельцу.
+	onBoard := true
+	if p.board != "" {
+		if _, err := p.gh.AddToBoard(ctx, project, number, p.board); err != nil {
+			onBoard = false
+			p.log.Error("board_add_failed", "case_id", cs.ID, "project", project.Slug,
+				"issue", number, "error", err)
+		}
+	}
+
 	published := false
 	err = p.cases.inTx(ctx, func(tx pgx.Tx) error {
 		// told_status ставится здесь, а не первым тиком слежения: иначе метка,
@@ -610,7 +680,7 @@ func (p *Publisher) Run(ctx context.Context, job Job) error {
 			return nil
 		}
 		return putAlert(ctx, tx, cs.ID, "alert",
-			alertPublished(project, cs, author, number, url, incomplete), p.alertChat)
+			alertPublished(project, cs, author, number, url, incomplete, onBoard), p.alertChat)
 	})
 	if err != nil {
 		return err
