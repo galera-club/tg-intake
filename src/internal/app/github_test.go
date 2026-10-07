@@ -398,7 +398,7 @@ func TestAddToBoard(t *testing.T) {
 	if err := json.Unmarshal(mutation, &sent); err != nil {
 		t.Fatalf("тело мутации не JSON: %v: %s", err, mutation)
 	}
-	if !strings.Contains(sent.Query, "addProjectV2ItemById") ||
+	if !strings.Contains(sent.Query, "projectId: $board, contentId: $issue") ||
 		sent.Variables["board"] != "PVT_board" || sent.Variables["issue"] != "I_77" {
 		t.Errorf("мутация: %s", mutation)
 	}

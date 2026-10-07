@@ -690,7 +690,7 @@ func (p *Publisher) Run(ctx context.Context, job Job) error {
 	}
 
 	p.log.Info("issue_created", "case_id", cs.ID, "project", project.Slug,
-		"issue", number, "incomplete", incomplete)
+		"issue", number, "incomplete", incomplete, "on_board", p.board != "" && onBoard)
 
 	// Медиа не переживает обращение; удаление здесь, а не в нормализации: до
 	// подтверждения саммари файл ловит неверно прочитанный скриншот. Сбой не
