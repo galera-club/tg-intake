@@ -160,6 +160,6 @@ func alertPublished(p Project, cs *Case, author User, number int, url string, in
 |---|---|
 | Триаж, метки | #102 сверен 07.10, `in-progress` |
 | Регрессор | - |
-| Ревью, мердж | `code-reviewer`, PR в `prod` |
+| Ревью, мердж | spec pass 2, code pass 2; PR в `prod` |
 | Журнал | `finish` |
 | Деплой | релиз 0.2.4 отдельным тикетом, `coolify-deploy.sh` |
