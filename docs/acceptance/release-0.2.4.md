@@ -75,7 +75,8 @@ CONFIRM=yes coolify-deploy.sh intake release <sha>
 ## Закрытие
 
 - GitHub Release `v0.2.4`, `Latest`.
-- galera-tasks#148 и #102: `status:prod`, закрыты; отзыв старого токена - владельцу.
+- galera-tasks#102: `status:prod`, закрыт. #148 в `status:wait`: отзыв старого токена и живая
+  проверка доски повтором «Публикую» - за владельцем и автором.
 
 ## G9. Анонс
 
