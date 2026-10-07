@@ -169,7 +169,7 @@ func publishThrough(t *testing.T, cases *Cases, userID, alertChat int64) (*Case,
 	}
 
 	server := githubStub(t, map[string]string{
-		"POST /repos/daniil4545/tg-intake/issues": `{"number": 77,
+		"POST /repos/galera-club/tg-intake/issues": `{"number": 77,
 			"html_url": "https://github.com/galera-club/tg-intake/issues/77"}`,
 	})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -186,7 +186,7 @@ func TestCancelAlertsOwner(t *testing.T) {
 	cs := publishCase(t, cases, 7101, 60)
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/60": `{"number": 60,
+		"GET /repos/galera-club/tg-intake/issues/60": `{"number": 60,
 			"html_url": "https://github.com/galera-club/tg-intake/issues/60", "labels": []}`,
 	})
 	tickets := newTestTickets(t, cases, server.URL)

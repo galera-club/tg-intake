@@ -34,7 +34,7 @@ sequenceDiagram
 | `GitHub.AddToBoard` | issue на доску по номеру | REST, GraphQL |
 | `Publisher.Run` | шаг доски после Find/Create | `GitHub`, `cases` |
 | `Config.BoardID` | node id доски, пустое - шаг выключен | `GITHUB_BOARD_ID` |
-| миграция 0013 | владелец четырёх проектов в `galera-club` | `projects` |
+| миграция 0013 | владелец проектов в `galera-club` | `projects` |
 
 Решения:
 
@@ -52,8 +52,9 @@ sequenceDiagram
 - `node_id` - через готовый `GetIssue` (поле `Issue.NodeID`): сигнатуры `CreateIssue` и
   `FindIssue` не меняются, цена - запрос на тикет. Шаг доски ограничен `githubTimeout`
   на весь шаг, чтобы повторы не съели `jobTimeout` транзакции; модель: нет.
-- Владелец - миграцией: `SyncProjects` существующие строки не трогает. Down возвращает
-  `daniil4545` только четырём slug; модель: нет.
+- Владелец - миграцией по `github_owner = 'daniil4545'`, без имён проектов: репозиторий
+  публичный (0002). В проде ровно четыре такие строки, все переехали (чтение 07.10). Down
+  пустой: редирект GitHub держит прошлую версию бота; изменено на реализации; модель: нет.
 
 ## 3. Сценарии
 
@@ -79,13 +80,13 @@ sequenceDiagram
 | 2 | Повтор работы после сбоя до транзакции | 6 | один `POST /issues`, мутация с тем же `contentId`, одно уведомление | интегр. | |
 | 3 | `GITHUB_BOARD_ID` пуст | 5 | 0 запросов к `/graphql`, алерт без строки о доске | интегр. | |
 | 4 | Нет `node_id`; `data:null`; пустой `item.id` | 2 | ошибка без паники; в мутации `projectId`=доска, `contentId`=`node_id` | быстрый | |
-| 5 | 0013: четыре slug, чужой `daniil4545`, позднее `galera-club` | 4 | up меняет только четыре, down возвращает их, прочие не тронуты | интегр. | |
+| 5 | 0013: строки `daniil4545` и чужого владельца (down пустой, раздел 2) | 4 | up меняет только `daniil4545` | интегр. | `TestMigration0013` |
 | 6 | Смена пути модуля | 5 | `make -C src ci-check` зелёный | быстрый | |
 
 ## 4. Данные и состояния
 
-- `projects.github_owner`: миграция 0013 меняет `daniil4545` на `galera-club` у slug
-  `tg-intake`, `planerka`, `qualifier`, `galera-assistant`; другие строки не трогает.
+- `projects.github_owner`: миграция 0013 меняет `daniil4545` на `galera-club`, другие
+  владельцы не тронуты.
 - Карточка доски: одна на issue (мутация идемпотентна). `cases`: схема та же,
   `published` от доски не зависит.
 
@@ -119,7 +120,7 @@ func alertPublished(p Project, cs *Case, author User, number int, url string, in
 | `src/go.mod` | 1 | `module` | `galera-club`, импорты `*.go` скриптом | 1 |
 | `.github/workflows/deploy.yml`, `deploy/safe-ssh.sh` | 26, 127 | образ | `ghcr.io/galera-club/tg-intake` | 1 |
 | `src/.env.example`, `AGENTS.md` | 71; 7, 48 | `PROJECTS`, модуль | `galera-club`, строка `GITHUB_BOARD_ID` | 1, 3 |
-| `src/migrations/0013_org_owner.sql` | - | новая | up/down по четырём slug | 2 |
+| `src/migrations/0013_org_owner.sql` | - | новая | up по владельцу, down пустой | 2 |
 | `src/internal/app/migrations_test.go` | 17 | `TestMigrations` | новый тест владельца | 2 |
 | `src/internal/app/config.go` | 81 | `GitHubToken` | рядом `BoardID` из `GITHUB_BOARD_ID` | 3 |
 | `src/internal/app/github.go` | 151 | `CreateIssue` | рядом `AddToBoard` | 3 |
@@ -137,13 +138,13 @@ func alertPublished(p Project, cs *Case, author User, number int, url string, in
 
 | Этап | Результат | Проверка | Статус |
 |---|---|---|---|
-| 1. Адреса galera-club | модуль, образ, AGENTS, пример env | `make commit-check`; `daniil4545` остаётся только в списке «оставляем» ниже | pending |
-| 2. Миграция владельца | проекты и тестовые заглушки в `galera-club`, down обратим | `TestMigrationOrgOwner`, `TestMigrations`, `make test` | pending |
+| 1. Адреса galera-club | модуль, образ, AGENTS, пример env | `make commit-check`; `daniil4545` остаётся только в списке «оставляем» ниже | done |
+| 2. Миграция владельца | проекты и заглушки в `galera-club` | `TestMigration0013`, `TestMigrations`, `make test` | done |
 | 3. Тикет на доску | `AddToBoard`, конфиг, уведомление | `TestAddToBoard`, `TestAddToBoardGraphQLError`, `TestPublishBoardFailureKeepsTicket`, `TestPublishWithoutBoard`, `TestAlertPublishedNotOnBoard` | pending |
 | 4. Документы | contracts, prd, CHANGELOG | чтение | pending |
 
 Оставляем `daniil4545`: логин в guard `deploy.yml:76,111`; применённая `0002_seed_project.sql`;
-down 0013; песочница `intake-sandbox` (`Makefile:58`, `live_test.go:26,50`); фикстуры разбора
+песочница `intake-sandbox` (`Makefile:58`, `live_test.go:26,50`); фикстуры разбора
 ссылок `projects_test.go`; история в `docs/acceptance`, `docs/specs`, `CHANGELOG.md`.
 
 ## 7. Критерий приёмки

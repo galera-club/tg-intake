@@ -248,3 +248,60 @@ func TestMigration0012(t *testing.T) {
 		t.Errorf("после отката колонки живого экрана остались: %d", columns)
 	}
 }
+
+// TestMigration0013: проекты старого личного аккаунта переезжают к владельцу
+// galera-club, проект другого владельца не трогается.
+func TestMigration0013(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	db, err := sql.Open("pgx", url)
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("set dialect: %v", err)
+	}
+	const dir = "../../migrations"
+	t.Cleanup(func() {
+		if err := goose.Up(db, dir); err != nil {
+			t.Errorf("restore schema: %v", err)
+		}
+	})
+	if err := goose.Up(db, dir); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+	if err := goose.DownTo(db, dir, 12); err != nil {
+		t.Fatalf("down to 12: %v", err)
+	}
+	// Засеянный tg-intake остаётся: на нём стоят остальные тесты пакета.
+	t.Cleanup(func() {
+		if _, err := db.Exec(`DELETE FROM projects WHERE slug IN ('one', 'two', 'other')`); err != nil {
+			t.Errorf("delete test projects: %v", err)
+		}
+	})
+	before := map[string]string{"one": "daniil4545", "two": "daniil4545", "other": "someone"}
+	for slug, owner := range before {
+		if _, err := db.Exec(`INSERT INTO projects (slug, title, github_owner, github_repo)
+			VALUES ($1, $1, $2, $1)`, slug, owner); err != nil {
+			t.Fatalf("insert project %s: %v", slug, err)
+		}
+	}
+
+	if err := goose.UpTo(db, dir, 13); err != nil {
+		t.Fatalf("up to 13: %v", err)
+	}
+
+	want := map[string]string{"one": "galera-club", "two": "galera-club", "other": "someone"}
+	for slug, owner := range want {
+		var got string
+		if err := db.QueryRow(`SELECT github_owner FROM projects WHERE slug = $1`, slug).Scan(&got); err != nil {
+			t.Fatalf("read %s: %v", slug, err)
+		}
+		if got != owner {
+			t.Errorf("%s: владелец %q, ожидался %q", slug, got, owner)
+		}
+	}
+}

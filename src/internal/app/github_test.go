@@ -279,7 +279,7 @@ func TestPublishMixedLabels(t *testing.T) {
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method == http.MethodPost && r.URL.Path == "/repos/daniil4545/tg-intake/issues" {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/galera-club/tg-intake/issues" {
 			if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
 				t.Errorf("decode issue: %v", err)
 			}
@@ -331,10 +331,10 @@ func TestPublishFindsIssueOnFirstAttempt(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method == http.MethodPost && r.URL.Path == "/repos/daniil4545/tg-intake/issues" {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/galera-club/tg-intake/issues" {
 			t.Error("создан второй issue")
 		}
-		if r.Method == http.MethodGet && r.URL.Path == "/repos/daniil4545/tg-intake/issues" {
+		if r.Method == http.MethodGet && r.URL.Path == "/repos/galera-club/tg-intake/issues" {
 			found := []Issue{{Number: 77, HTMLURL: "https://github.com/galera-club/tg-intake/issues/77",
 				Body: "тело\n" + caseMarker(cs.ID)}}
 			if err := json.NewEncoder(w).Encode(found); err != nil {

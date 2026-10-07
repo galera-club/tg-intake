@@ -239,12 +239,12 @@ func newTestLookup(t *testing.T, cases *Cases, llm *OpenRouter) *Lookup {
 	t.Helper()
 
 	server := githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake": `{"full_name": "daniil4545/tg-intake", "default_branch": "prod"}`,
-		"GET /repos/daniil4545/tg-intake/git/trees/prod": `{"tree": [
+		"GET /repos/galera-club/tg-intake": `{"full_name": "galera-club/tg-intake", "default_branch": "prod"}`,
+		"GET /repos/galera-club/tg-intake/git/trees/prod": `{"tree": [
 			{"path": "docs/prd.md", "type": "blob", "size": 4200},
 			{"path": "docs/architecture.md", "type": "blob", "size": 9100}
 		], "truncated": false}`,
-		"GET /repos/daniil4545/tg-intake/contents/docs/prd.md": fmt.Sprintf(
+		"GET /repos/galera-club/tg-intake/contents/docs/prd.md": fmt.Sprintf(
 			`{"content": %q, "encoding": "base64"}`,
 			base64.StdEncoding.EncodeToString([]byte("# Продукт\n\nОпрос уходит раз в сутки."))),
 	})

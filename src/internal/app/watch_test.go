@@ -21,7 +21,7 @@ func TestWatchTellsAboutStatus(t *testing.T) {
 	setTold(t, pool, cs.ID, labelNew)
 
 	watch := newTestWatch(t, pool, githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues": `[{"number": 70, "labels": [{"name": "status:in-progress"}]}]`,
+		"GET /repos/galera-club/tg-intake/issues": `[{"number": 70, "labels": [{"name": "status:in-progress"}]}]`,
 	}).URL)
 	if err := watch.Run(ctx); err != nil {
 		t.Fatalf("watch: %v", err)
@@ -65,7 +65,7 @@ func TestWatchSilentOnFirstSight(t *testing.T) {
 	cs := publishCase(t, cases, 7102, 71)
 
 	watch := newTestWatch(t, pool, githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues": `[{"number": 71, "labels": [{"name": "status:prod"}]}]`,
+		"GET /repos/galera-club/tg-intake/issues": `[{"number": 71, "labels": [{"name": "status:prod"}]}]`,
 	}).URL)
 	if err := watch.Run(ctx); err != nil {
 		t.Fatalf("watch: %v", err)
@@ -89,7 +89,7 @@ func TestWatchQuietStatus(t *testing.T) {
 	setTold(t, pool, cs.ID, labelNew)
 
 	watch := newTestWatch(t, pool, githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues": `[{"number": 72, "labels": [{"name": "status:dev"}]}]`,
+		"GET /repos/galera-club/tg-intake/issues": `[{"number": 72, "labels": [{"name": "status:dev"}]}]`,
 	}).URL)
 	if err := watch.Run(ctx); err != nil {
 		t.Fatalf("watch: %v", err)
@@ -122,11 +122,11 @@ func TestWatchTellsAboutComment(t *testing.T) {
 	created := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
 	updated := time.Now().Add(-30 * time.Minute).UTC().Format(time.RFC3339)
 	watch := newTestWatch(t, pool, githubStub(t, map[string]string{
-		"GET /repos/daniil4545/tg-intake/issues/comments": fmt.Sprintf(`[
+		"GET /repos/galera-club/tg-intake/issues/comments": fmt.Sprintf(`[
 			{"id": 501, "body": "Смотрю", "created_at": %q, "updated_at": %q,
-			 "issue_url": "https://api.github.com/repos/daniil4545/tg-intake/issues/73"},
+			 "issue_url": "https://api.github.com/repos/galera-club/tg-intake/issues/73"},
 			{"id": 502, "body": "Чужой тикет", "created_at": %q, "updated_at": %q,
-			 "issue_url": "https://api.github.com/repos/daniil4545/tg-intake/issues/999"}]`,
+			 "issue_url": "https://api.github.com/repos/galera-club/tg-intake/issues/999"}]`,
 			created, updated, created, updated),
 	}).URL)
 	for range 2 {
