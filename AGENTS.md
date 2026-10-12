@@ -60,7 +60,7 @@ Telegram-бот, который связывает тех, кто ставит �
 ## Структура
 
 `docs/` - prd, architecture, contracts, llm, state, backlog, plans/, acceptance/.
-`deploy/` - safe-ssh.sh и prod/docker-compose.coolify.yml.
+`deploy/` - safe-ssh.sh, prod/docker-compose.coolify.yml, env-map/ (карта секретов контура для sync-env).
 `src/` - cmd/intake/, migrations/, Makefile, Dockerfile, .env.example, а
 `src/internal/app/` - весь рабочий код плоско, плюс prompts/ и rules/.
 
@@ -68,9 +68,14 @@ Telegram-бот, который связывает тех, кто ставит �
 
 Всё из `src`: `docker compose up -d postgres`, `make migrate-up`, `make run`,
 `make test`, `make vet`, `make ci-check`, `make migrate-reset`. `migrate-*`
-отказываются работать с не-localhost базой без `ALLOW_REMOTE=1`; тесты с базой
-идут только при заданном `TEST_DATABASE_URL`, иначе молча скипаются: без
-переменной прогон закрывает срез не полностью.
+отказываются работать с не-localhost базой без `ALLOW_REMOTE=1`; `make test` и
+`make ci-check` без `TEST_DATABASE_URL` падают (цель `need-db`); голый `go test`
+тесты с базой пропускает, такой прогон срез не закрывает.
+
+Платные прогоны (`make eval`, `eval-compare`, `live`) падают без `PAID_OK=1` после
+согласия владельца и без `MAX_CALLS=<число вызовов модели>`; потолок держит
+`cappedLLM` (`paidcap_test.go`). `make ci-check` включает `security` (govulncheck,
+gitleaks) и `workflows`.
 
 Новый тест оправдан, только если сломанный код его роняет: прежде чем оставить
 тест, мысленно сломать покрываемую строку и назвать, что упадёт. Не падает - тест
@@ -87,9 +92,8 @@ Telegram-бот, который связывает тех, кто ставит �
 и `case` печатают тексты обращений и ФИО: в терминале допустимо, в коммите нет.
 Переменные контура показывает `deploy-config`, `app-env` - лишь окружение.
 
-Проверка выката: зелёный workflow означает «Coolify принял запрос», а не «версия
-выкачена» - сверять `app_revision` из `health` с кандидатом: старый контейнер
-остаётся healthy и при несостоявшемся деплое.
+Проверка выката: после `coolify-deploy.sh` сверять `app_revision` из `health` с
+кандидатом: старый контейнер остаётся healthy и при несостоявшемся деплое.
 
 ## Workflow
 
@@ -100,8 +104,9 @@ Telegram-бот, который связывает тех, кто ставит �
 «что вышло иначе и почему».
 
 Ветки: единственная - `prod`; срез в `feature/<slug>`, PR в `prod`, после мерджа
-ветка удаляется. Деплой контура только по тегу `v*` и команде владельца (workflow
-`Deploy`), автодеплоя по push нет. Dev-контура нет: понадобится - заводится по
+ветка удаляется. Деплой контура только по команде владельца: `coolify-deploy.sh` из
+`galera-dev-knowledge/infra/scripts` (образ по sha коммита). Workflow `Deploy`
+запускается только вручную и не используется. Автодеплоя по push нет. Dev-контура нет: понадобится - заводится по
 runbook базы знаний.
 
 Метод интервью взят из промта брифовщика (внутренняя база знаний): разбор случая,
