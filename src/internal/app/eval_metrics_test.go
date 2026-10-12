@@ -544,7 +544,7 @@ func TestRoundAnswers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := roundAnswers(tt.events); !maps.Equal(got, tt.want) {
-				t.Fatalf("roundAnswers = %q, want %q", got, tt.want)
+				t.Fatalf("roundAnswers = %v, want %v", got, tt.want)
 			}
 		})
 	}
