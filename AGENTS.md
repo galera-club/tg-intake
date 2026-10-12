@@ -48,7 +48,7 @@ Telegram-бот, который связывает тех, кто ставит �
 Модуль `github.com/galera-club/tg-intake`. Прямых зависимостей три, остальное -
 стандартная библиотека; обоснование - раздел 1 [architecture](docs/architecture.md).
 
-- Go 1.25, PostgreSQL 16 (данные и очередь через `FOR UPDATE SKIP LOCKED`)
+- Go 1.26, PostgreSQL 16 (данные и очередь через `FOR UPDATE SKIP LOCKED`)
 - `gopkg.in/telebot.v4` - Bot API; `github.com/jackc/pgx/v5` - драйвер и пул;
   `github.com/pressly/goose/v3` - миграции, бинарь в образе
 - `log/slog` (stdlib) - JSON-логи; OpenRouter и GitHub - свои клиенты на

@@ -37,7 +37,7 @@ Telegram-бот, который связывает тех, кто ставит �
 
 ## Стек
 
-Go 1.25, PostgreSQL 16 (данные и очередь через `FOR UPDATE SKIP LOCKED`),
+Go 1.26, PostgreSQL 16 (данные и очередь через `FOR UPDATE SKIP LOCKED`),
 миграции goose, Telegram Bot API через `telebot.v4`, LLM через OpenRouter,
 GitHub REST API. Runtime - один сервис в Docker, контур в Coolify.
 
